@@ -6,8 +6,6 @@ import ProtectedRoute from '../components/ProtectedRoute'
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   sortingFns,
   useReactTable,
@@ -112,11 +110,41 @@ function TableDemo() {
     initialColumnFilters,
   )
   const [globalFilter, setGlobalFilter] = React.useState(initialGlobalFilter)
+  const [pagination, setPagination] = React.useState({
+    pageIndex: initialPage ? initialPage - 1 : 0,
+    pageSize: initialPageSize || 10,
+  });
+  const [sorting, setSorting] = React.useState(initialSorting);
+
+  // Combine globalFilter and columnFilters for API search
+  const searchQuery = React.useMemo(() => {
+    const filters = columnFilters.map(filter => filter.value).filter(Boolean);
+    if (globalFilter) {
+      filters.push(globalFilter);
+    }
+    return filters.join(' ').trim();
+  }, [globalFilter, columnFilters]);
+
+  // Debug API requests
+  React.useEffect(() => {
+    console.log('Search Query:', searchQuery);
+    console.log('Pagination:', pagination);
+    console.log('API URL:', `https://dummyjson.com/users${searchQuery ? '/search' : ''}?limit=${pagination.pageSize}&skip=${pagination.pageIndex * pagination.pageSize}`);
+  }, [searchQuery, pagination]);
 
   const { data, isLoading, error, refetch } = useQuery<DummyJSONResponse>({
-    queryKey: ['people'],
+    queryKey: ['people', searchQuery, pagination.pageIndex, pagination.pageSize],
     queryFn: async () => {
-      const response = await axios.get<DummyJSONResponse>('https://dummyjson.com/users');
+      const params = new URLSearchParams({
+        limit: pagination.pageSize.toString(),
+        skip: (pagination.pageIndex * pagination.pageSize).toString(),
+      });
+      if (searchQuery) {
+        params.append('q', searchQuery);
+      }
+      const url = `https://dummyjson.com/users${searchQuery ? '/search' : ''}`;
+      console.log('Fetching:', `${url}?${params.toString()}`);
+      const response = await axios.get<DummyJSONResponse>(url, { params });
       return response.data;
     },
     initialData: { users: [], total: 0, skip: 0, limit: 0 },
@@ -158,13 +186,6 @@ function TableDemo() {
     [],
   )
 
-  const [pagination, setPagination] = React.useState({
-    pageIndex: initialPage ? initialPage - 1 : 0,
-    pageSize: initialPageSize || 10,
-  });
-
-  const [sorting, setSorting] = React.useState(initialSorting);
-
   const updateSearchParams = React.useCallback(() => {
     const searchParams: TableSearchParams = {};
 
@@ -188,8 +209,9 @@ function TableDemo() {
       searchParams.columnFilters = JSON.stringify(columnFilters);
     }
 
+    console.log('Updating URL with searchParams:', searchParams);
     navigate({
-      search: searchParams as any, // Temporary workaround; update router config for type safety
+      search: searchParams as any,
       replace: true,
     });
   }, [globalFilter, pagination, sorting, columnFilters, navigate]);
@@ -199,7 +221,7 @@ function TableDemo() {
   }, [globalFilter, pagination, sorting, columnFilters, updateSearchParams]);
 
   const table = useReactTable({
-    data: data.users, // Use users array from API response
+    data: data.users,
     columns,
     filterFns: {
       fuzzy: fuzzyFilter,
@@ -216,9 +238,10 @@ function TableDemo() {
     onSortingChange: setSorting,
     globalFilterFn: 'fuzzy',
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualFiltering: true,
+    manualPagination: true,
+    pageCount: Math.ceil(data.total / pagination.pageSize),
     debugTable: true,
     debugHeaders: true,
     debugColumns: false,
@@ -240,6 +263,12 @@ function TableDemo() {
       {error && (
         <div className="mb-4 p-3 bg-red-500 text-white rounded-md">
           Error: {error.message}
+          <button
+            onClick={() => refetch()}
+            className="ml-4 px-2 py-1 bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            Retry
+          </button>
         </div>
       )}
       {!isLoading && !error && data.users.length === 0 && (
@@ -381,7 +410,7 @@ function TableDemo() {
             </select>
           </div>
           <div className="mt-4 text-gray-400">
-            {table.getPrePaginationRowModel().rows.length} Rows
+            {data.total} Total Rows
           </div>
           <div className="mt-4 flex gap-2">
             <button
@@ -406,7 +435,7 @@ function Filter({ column }: { column: Column<any, unknown> }) {
       type="text"
       value={(columnFilterValue ?? '') as string}
       onChange={(value) => column.setFilterValue(value)}
-      placeholder={`Search...`}
+      placeholder={`Search ${column.id}...`}
       className="w-full px-2 py-1 bg-gray-700 text-white rounded-md border border-gray-600 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
     />
   )
@@ -434,7 +463,7 @@ function DebouncedInput({
     }, debounce)
 
     return () => clearTimeout(timeout)
-  }, [value])
+  }, [value, onChange, debounce])
 
   return (
     <input
