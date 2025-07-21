@@ -1,14 +1,14 @@
 import { StrictMode } from 'react'
-import ReactDOM from 'react-dom/client'
+import * as ReactDOM from 'react-dom/client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 
-import * as TanStackQueryProvider from './integrations/tanstack-query/root-provider.tsx'
+import * as TanStackQueryProvider from './integrations/tanstack-query/root-provider'
 import { AuthProvider } from './context/AuthContext'
 
 import { routeTree } from './routeTree.gen'
 
 import './styles.css'
-import reportWebVitals from './reportWebVitals.ts'
+import reportWebVitals from './reportWebVitals'
 
 const router = createRouter({
   routeTree,
@@ -29,15 +29,14 @@ declare module '@tanstack/react-router' {
 
 const rootElement = document.getElementById('app')
 if (rootElement && !rootElement.innerHTML) {
-  const root = ReactDOM.createRoot(rootElement)
-  root.render(
+  ReactDOM.createRoot(rootElement).render(
     <StrictMode>
       <AuthProvider>
         <TanStackQueryProvider.Provider>
           <RouterProvider router={router} />
         </TanStackQueryProvider.Provider>
       </AuthProvider>
-    </StrictMode>,
+    </StrictMode>
   )
 }
 
