@@ -23,7 +23,6 @@ import type {
 } from '@tanstack/react-table'
 import type { RankingInfo } from '@tanstack/match-sorter-utils'
 
-// Define the shape of a user from DummyJSON
 interface Person {
   id: number;
   firstName: string;
@@ -31,7 +30,6 @@ interface Person {
   email: string;
 }
 
-// Define the DummyJSON API response
 interface DummyJSONResponse {
   users: Person[];
   total: number;
@@ -39,7 +37,6 @@ interface DummyJSONResponse {
   limit: number;
 }
 
-// Define the search params interface
 interface TableSearchParams {
   globalFilter?: string;
   page?: number;
@@ -116,7 +113,6 @@ function TableDemo() {
   )
   const [globalFilter, setGlobalFilter] = React.useState(initialGlobalFilter)
 
-  // Fetch data using TanStack Query and Axios
   const { data, isLoading, error, refetch } = useQuery<DummyJSONResponse>({
     queryKey: ['people'],
     queryFn: async () => {
